@@ -26,18 +26,21 @@ public class Main {
         // uzupełnij rozwiązanie. Korzystaj z przekazanego w parametrze scannera
         String stringFromUser = getStringFromUser(scanner);
         List<String> patterns = List.of("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd", "dd.MM.yyyy HH:mm:ss");
-        if (stringFromUser.startsWith("t")) {
-            Queue<Character> charters = findPositiveOrNegativeCharter(stringFromUser);
-            Queue<Long> numbers = findNumbersInTheString(stringFromUser);
-            if (charters.size() != numbers.size()) {
-                System.out.println("Niepoprawny format");
+        Queue<Character> charters = findPositiveOrNegativeCharter(stringFromUser);
+        Queue<Long> numbers = findNumbersInTheString(stringFromUser);
+        try {
+            if (stringFromUser.startsWith("t")) {
+                if (charters.size() != numbers.size()) {
+                    throw new NullPointerException();
+                } else {
+                    LocalDateTime changedDateTime = changeLocalDateTimeAsRequired(stringFromUser, charters, numbers);
+                    printDateTime(patterns, changedDateTime);
+                }
             } else {
-                System.out.println();
-                LocalDateTime changedDateTime = changeLocalDateTimeAsRequired(stringFromUser, charters, numbers);
-                printDateTime(patterns, changedDateTime);
+                changeTimeToRequiredTimeZonesAndPrint(stringFromUser, patterns);
             }
-        } else {
-            changeTimeToRequiredTimeZonesAndPrint(stringFromUser, patterns);
+        } catch (NullPointerException e) {
+            System.err.println("Niewłaściwy format");
         }
     }
 
@@ -80,19 +83,15 @@ public class Main {
     private static LocalDateTime changeLocalDateTimeAsRequired(String originalText, Queue<Character> charterQueue, Queue<Long> numbers) {
         LocalDateTime localDateTime = LocalDateTime.now();
         char[] charArray = charArrayFromOriginalText(originalText);
-        ChronoUnit unit =  null;
-        System.out.println();
+        ChronoUnit unit = null;
         for (int i = 1; i < charArray.length; i++) {
             if (Character.isLetter(charArray[i])) {
                 TimeOperators timeOperators = TimeOperators.grtFromDescription(charArray[i]);
                 unit = getTemporalUnitFromTimeOperator(Objects.requireNonNull(timeOperators));
                 if (!checkIfItsPositiveCharter(charterQueue)) {
-                    charterQueue.poll();
-                    long number = getNumberFromTheQueue(numbers) * -1;
-                    localDateTime = localDateTime.plus(number, unit);
+                    localDateTime = getLocalDateTime(charterQueue, numbers, localDateTime, unit, false);
                 } else {
-                    charterQueue.poll();
-                    localDateTime =  localDateTime.plus(getNumberFromTheQueue(numbers), unit);
+                    localDateTime = getLocalDateTime(charterQueue, numbers, localDateTime, unit, true);
                 }
 
             }
@@ -100,8 +99,19 @@ public class Main {
         return localDateTime;
     }
 
+    private static LocalDateTime getLocalDateTime(Queue<Character> charterQueue, Queue<Long> numbers,
+                                                  LocalDateTime localDateTime, ChronoUnit unit, boolean isPlus) {
+        charterQueue.poll();
+        long number = 0;
+        if (!isPlus) {
+            number = getNumberFromTheQueue(numbers) * -1;
+        } else {
+            number = getNumberFromTheQueue(numbers);
+        }
+        return localDateTime.plus(number, unit);
+    }
+
     private static ChronoUnit getTemporalUnitFromTimeOperator(TimeOperators s) {
-        TimeOperators timeOperators;
         switch (s) {
             case YEAR -> {
                 return ChronoUnit.YEARS;
@@ -126,7 +136,7 @@ public class Main {
     }
 
     private static boolean checkIfItsPositiveCharter(Queue<Character> charters) {
-        return PLUS_SIGN == Objects.requireNonNull(charters.peek());
+        return PLUS_SIGN == charters.peek();
     }
 
     private static Long getNumberFromTheQueue(Queue<Long> numbers) {
