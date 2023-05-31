@@ -18,6 +18,7 @@ public class Main {
     private static final String HOUR = "h";
     private static final String MINUTES = "m";
     private static final String SECONDS = "s";
+    private static final String PLUS_SIGN = "+";
 
     public static void main(String[] args) {
 
@@ -27,17 +28,17 @@ public class Main {
 
     public void run(Scanner scanner) {
         // uzupełnij rozwiązanie. Korzystaj z przekazanego w parametrze scannera
-        String originalText = getStringFromUser(scanner);
+        String stringFromUser = getStringFromUser(scanner);
         List<String> patterns = List.of("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd", "dd.MM.yyyy HH:mm:ss");
-        if (originalText.contains("t")) {
+        if (stringFromUser.contains("t")) {
             LocalDateTime localDateTime = LocalDateTime.now();
             DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(patterns.get(0));
-            Queue<String> charters = findPositiveOrNegativeCharter(originalText);
-            Queue<Long> numbers = findNumbersInTheString(originalText);
-            localDateTime = changeLocalDateTimeAsRequired(originalText, localDateTime, charters, numbers);
+            Queue<String> charters = findPositiveOrNegativeCharter(stringFromUser);
+            Queue<Long> numbers = findNumbersInTheString(stringFromUser);
+            localDateTime = changeLocalDateTimeAsRequired(stringFromUser, localDateTime, charters, numbers);
             System.out.println("Czas lokalny: " + dateTimeFormatter.format(localDateTime));
         } else {
-            changeTimeToRequiredTimeZonesAndPrint(originalText, patterns);
+            changeTimeToRequiredTimeZonesAndPrint(stringFromUser, patterns);
         }
     }
 
@@ -47,20 +48,28 @@ public class Main {
         }
         for (String pat : patterns) {
             try {
-                DateTimeFormatter pattern = DateTimeFormatter.ofPattern(pat);
-                TemporalAccessor temporalAccessor = pattern.parse(originalText);
-                LocalDateTime localDateTime = LocalDateTime.from(temporalAccessor);
-                ZoneId warsawZoneId = ZoneId.of(TimeZone.TIME_FROM_COMPUTER.getZoneId());
-                ZonedDateTime warsawZoneDateTime = localDateTime.atZone(warsawZoneId);
-                for (TimeZone value : TimeZone.values()) {
-                    ZoneId idOfRequestedZone = ZoneId.of(value.getZoneId());
-                    ZonedDateTime requestedDateTime = warsawZoneDateTime.withZoneSameInstant(idOfRequestedZone);
-                    DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(patterns.get(0));
-                    System.out.println(value.getName() + dateTimeFormatter.format(requestedDateTime));
-                }
+                ZonedDateTime warsawZoneDateTime = getZonedDateTime(originalText, pat);
+                printTimeZones(patterns, warsawZoneDateTime);
             } catch (DateTimeException e) {
                 //
             }
+        }
+    }
+
+    private static ZonedDateTime getZonedDateTime(String originalText, String pat) {
+        DateTimeFormatter pattern = DateTimeFormatter.ofPattern(pat);
+        TemporalAccessor temporalAccessor = pattern.parse(originalText);
+        LocalDateTime localDateTime = LocalDateTime.from(temporalAccessor);
+        ZoneId warsawZoneId = ZoneId.of(TimeZone.TIME_FROM_COMPUTER.getZoneId());
+        return localDateTime.atZone(warsawZoneId);
+    }
+
+    private static void printTimeZones(List<String> patterns, ZonedDateTime warsawZoneDateTime) {
+        for (TimeZone value : TimeZone.values()) {
+            ZoneId idOfRequestedZone = ZoneId.of(value.getZoneId());
+            ZonedDateTime requestedDateTime = warsawZoneDateTime.withZoneSameInstant(idOfRequestedZone);
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(patterns.get(0));
+            System.out.println(value.getName() + dateTimeFormatter.format(requestedDateTime));
         }
     }
 
@@ -126,7 +135,7 @@ public class Main {
     }
 
     private static boolean checkIfItsPositiveCharter(Queue<String> charters) {
-        return Objects.requireNonNull(charters.peek()).equals("+");
+        return Objects.requireNonNull(charters.peek()).equals(PLUS_SIGN);
     }
 
     private static Long getNumberFromTheQueue(Queue<Long> numbers) {
