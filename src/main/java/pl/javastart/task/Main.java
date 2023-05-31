@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -12,13 +13,8 @@ import java.util.regex.Pattern;
 
 public class Main {
 
-    private static final String YEAR = "y";
-    private static final String MONTH = "M";
-    private static final String DAY = "d";
-    private static final String HOUR = "h";
-    private static final String MINUTES = "m";
-    private static final String SECONDS = "s";
-    private static final String PLUS_SIGN = "+";
+    private static final char PLUS_SIGN = '+';
+    private static final char MINUS_SIGN = '-';
 
     public static void main(String[] args) {
 
@@ -30,16 +26,24 @@ public class Main {
         // uzupełnij rozwiązanie. Korzystaj z przekazanego w parametrze scannera
         String stringFromUser = getStringFromUser(scanner);
         List<String> patterns = List.of("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd", "dd.MM.yyyy HH:mm:ss");
-        if (stringFromUser.contains("t")) {
-            LocalDateTime localDateTime = LocalDateTime.now();
-            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(patterns.get(0));
-            Queue<String> charters = findPositiveOrNegativeCharter(stringFromUser);
+        if (stringFromUser.startsWith("t")) {
+            Queue<Character> charters = findPositiveOrNegativeCharter(stringFromUser);
             Queue<Long> numbers = findNumbersInTheString(stringFromUser);
-            localDateTime = changeLocalDateTimeAsRequired(stringFromUser, localDateTime, charters, numbers);
-            System.out.println("Czas lokalny: " + dateTimeFormatter.format(localDateTime));
+            if (charters.size() != numbers.size()) {
+                System.out.println("Niepoprawny format");
+            } else {
+                System.out.println();
+                LocalDateTime changedDateTime = changeLocalDateTimeAsRequired(stringFromUser, charters, numbers);
+                printDateTime(patterns, changedDateTime);
+            }
         } else {
             changeTimeToRequiredTimeZonesAndPrint(stringFromUser, patterns);
         }
+    }
+
+    private static void printDateTime(List<String> patterns, LocalDateTime localDateTime) {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(patterns.get(0));
+        System.out.println("Czas lokalny: " + dateTimeFormatter.format(localDateTime));
     }
 
     private static void changeTimeToRequiredTimeZonesAndPrint(String originalText, List<String> patterns) {
@@ -73,82 +77,75 @@ public class Main {
         }
     }
 
-    private static LocalDateTime changeLocalDateTimeAsRequired(String originalText, LocalDateTime localDateTime, Queue<String> charterQueue, Queue<Long> numbers) {
-        String[] orgText = originalText.split("");
-        for (int i = 1; i < orgText.length; i++) {
-            if (orgText[i].equals(YEAR)) {
-                if (checkIfItsPositiveCharter(charterQueue)) {
-                    localDateTime = localDateTime.plusYears(getNumberFromTheQueue(numbers));
+    private static LocalDateTime changeLocalDateTimeAsRequired(String originalText, Queue<Character> charterQueue, Queue<Long> numbers) {
+        LocalDateTime localDateTime = LocalDateTime.now();
+        char[] charArray = charArrayFromOriginalText(originalText);
+        ChronoUnit unit =  null;
+        System.out.println();
+        for (int i = 1; i < charArray.length; i++) {
+            if (Character.isLetter(charArray[i])) {
+                TimeOperators timeOperators = TimeOperators.grtFromDescription(charArray[i]);
+                unit = getTemporalUnitFromTimeOperator(Objects.requireNonNull(timeOperators));
+                if (!checkIfItsPositiveCharter(charterQueue)) {
                     charterQueue.poll();
+                    long number = getNumberFromTheQueue(numbers) * -1;
+                    localDateTime = localDateTime.plus(number, unit);
                 } else {
-                    localDateTime = localDateTime.minusYears(getNumberFromTheQueue(numbers));
                     charterQueue.poll();
+                    localDateTime =  localDateTime.plus(getNumberFromTheQueue(numbers), unit);
                 }
-            }
-            if (orgText[i].equals(MONTH)) {
-                if (checkIfItsPositiveCharter(charterQueue)) {
-                    localDateTime = localDateTime.plusMonths(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                } else {
-                    localDateTime = localDateTime.minusMonths(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                }
-            }
-            if (orgText[i].equals(DAY)) {
-                if (checkIfItsPositiveCharter(charterQueue)) {
-                    localDateTime = localDateTime.plusDays(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                } else {
-                    localDateTime = localDateTime.minusDays(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                }
-            }
-            if (orgText[i].equals(HOUR)) {
-                if (checkIfItsPositiveCharter(charterQueue)) {
-                    localDateTime = localDateTime.plusHours(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                } else {
-                    localDateTime = localDateTime.minusHours(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                }
-            }
-            if (orgText[i].equals(MINUTES)) {
-                if (checkIfItsPositiveCharter(charterQueue)) {
-                    localDateTime = localDateTime.plusMinutes(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                } else {
-                    localDateTime = localDateTime.minusMinutes(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                }
-            }
-            if (orgText[i].equals(SECONDS)) {
-                if (checkIfItsPositiveCharter(charterQueue)) {
-                    localDateTime = localDateTime.plusSeconds(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                } else {
-                    localDateTime = localDateTime.minusSeconds(getNumberFromTheQueue(numbers));
-                    charterQueue.poll();
-                }
+
             }
         }
         return localDateTime;
     }
 
-    private static boolean checkIfItsPositiveCharter(Queue<String> charters) {
-        return Objects.requireNonNull(charters.peek()).equals(PLUS_SIGN);
+    private static ChronoUnit getTemporalUnitFromTimeOperator(TimeOperators s) {
+        TimeOperators timeOperators;
+        switch (s) {
+            case YEAR -> {
+                return ChronoUnit.YEARS;
+            }
+            case MONTH -> {
+                return ChronoUnit.MONTHS;
+            }
+            case DAY -> {
+                return ChronoUnit.DAYS;
+            }
+            case HOUR -> {
+                return ChronoUnit.HOURS;
+            }
+            case MINUTES -> {
+                return ChronoUnit.MINUTES;
+            }
+            case SECONDS -> {
+                return ChronoUnit.SECONDS;
+            }
+            default -> throw new IllegalStateException("Unexpected value:");
+        }
+    }
+
+    private static boolean checkIfItsPositiveCharter(Queue<Character> charters) {
+        return PLUS_SIGN == Objects.requireNonNull(charters.peek());
     }
 
     private static Long getNumberFromTheQueue(Queue<Long> numbers) {
         return Objects.requireNonNull(numbers.poll());
     }
 
-    private static Queue<String> findPositiveOrNegativeCharter(String originalText) {
-        String text = originalText.replaceAll("[0-9,A-Z,a-z]", "");
-        text = text.trim();
-        String[] data = text.split("");
-        Queue<String> charters = new LinkedList<>();
-        Collections.addAll(charters, data);
-        return charters;
+    private static Queue<Character> findPositiveOrNegativeCharter(String originalText) {
+        Queue<Character> plusMinusQueue = new LinkedList<>();
+        char[] charArray = charArrayFromOriginalText(originalText);
+        for (char c : charArray) {
+            if (c == PLUS_SIGN || c == MINUS_SIGN) {
+                plusMinusQueue.add(c);
+            }
+        }
+        return plusMinusQueue;
+    }
+
+    private static char[] charArrayFromOriginalText(String originalText) {
+        return originalText.toCharArray();
     }
 
     private static Queue<Long> findNumbersInTheString(String originalText) {
